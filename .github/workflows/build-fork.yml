@@ -29,3 +29,5 @@ jobs:
           context: .
           push: true
           tags: ghcr.io/mjkknmj78f-hue/jellyseerr:latest
+          build-args: |
+            COMMIT_TAG=local
