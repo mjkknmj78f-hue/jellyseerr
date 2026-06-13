@@ -52,6 +52,14 @@ export class UserSettings {
   @Column({ nullable: true })
   public originalLanguage?: string;
 
+  // Prefer original audio — play default track regardless of language
+  @Column({ nullable: true, default: true })
+  public preferOriginalAudio?: boolean;
+
+  // Reject dubbed releases in Radarr/Sonarr when this user requests
+  @Column({ nullable: true, default: true })
+  public rejectDubbedReleases?: boolean;
+
   @Column({ nullable: true })
   public pgpKey?: string;
 

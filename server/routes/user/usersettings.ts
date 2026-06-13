@@ -62,6 +62,8 @@ userSettingsRoutes.get<{ id: string }, UserSettingsGeneralResponse>(
         globalTvQuotaLimit: defaultQuotas.tv.quotaLimit,
         watchlistSyncMovies: user.settings?.watchlistSyncMovies,
         watchlistSyncTv: user.settings?.watchlistSyncTv,
+        preferOriginalAudio: user.settings?.preferOriginalAudio ?? true,
+        rejectDubbedReleases: user.settings?.rejectDubbedReleases ?? true,
       });
     } catch (e) {
       next({ status: 500, message: e.message });
@@ -127,6 +129,8 @@ userSettingsRoutes.post<
         originalLanguage: req.body.originalLanguage,
         watchlistSyncMovies: req.body.watchlistSyncMovies,
         watchlistSyncTv: req.body.watchlistSyncTv,
+        preferOriginalAudio: req.body.preferOriginalAudio ?? true,
+        rejectDubbedReleases: req.body.rejectDubbedReleases ?? true,
       });
     } else {
       user.settings.locale = req.body.locale;
@@ -135,6 +139,8 @@ userSettingsRoutes.post<
       user.settings.originalLanguage = req.body.originalLanguage;
       user.settings.watchlistSyncMovies = req.body.watchlistSyncMovies;
       user.settings.watchlistSyncTv = req.body.watchlistSyncTv;
+      user.settings.preferOriginalAudio = req.body.preferOriginalAudio ?? true;
+      user.settings.rejectDubbedReleases = req.body.rejectDubbedReleases ?? true;
     }
 
     const savedUser = await userRepository.save(user);
@@ -147,6 +153,8 @@ userSettingsRoutes.post<
       originalLanguage: savedUser.settings?.originalLanguage,
       watchlistSyncMovies: savedUser.settings?.watchlistSyncMovies,
       watchlistSyncTv: savedUser.settings?.watchlistSyncTv,
+      preferOriginalAudio: savedUser.settings?.preferOriginalAudio ?? true,
+      rejectDubbedReleases: savedUser.settings?.rejectDubbedReleases ?? true,
       email: savedUser.email,
     });
   } catch (e) {

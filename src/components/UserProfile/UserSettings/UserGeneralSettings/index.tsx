@@ -54,6 +54,12 @@ const messages = defineMessages(
     discoverRegionTip: 'Filter content by regional availability',
     originallanguage: 'Discover Language',
     originallanguageTip: 'Filter content by original language',
+    preferOriginalAudio: 'Prefer Original Audio',
+    preferOriginalAudioTip:
+      'Always play the original language audio track — Korean, Japanese, Chinese, etc. No dub unless explicitly chosen.',
+    rejectDubbedReleases: 'Reject Dubbed Releases',
+    rejectDubbedReleasesTip:
+      'Tell Radarr/Sonarr to avoid grabbing dubbed versions when a request is processed.',
     streamingRegion: 'Streaming Region',
     streamingRegionTip: 'Show streaming sites by regional availability',
     movierequestlimit: 'Movie Request Limit',
@@ -155,6 +161,8 @@ const UserGeneralSettings = () => {
           discoverRegion: data?.discoverRegion,
           streamingRegion: data?.streamingRegion,
           originalLanguage: data?.originalLanguage,
+          preferOriginalAudio: data?.preferOriginalAudio ?? true,
+          rejectDubbedReleases: data?.rejectDubbedReleases ?? true,
           movieQuotaLimit: data?.movieQuotaLimit,
           movieQuotaDays: data?.movieQuotaDays,
           tvQuotaLimit: data?.tvQuotaLimit,
@@ -174,6 +182,8 @@ const UserGeneralSettings = () => {
               discoverRegion: values.discoverRegion,
               streamingRegion: values.streamingRegion,
               originalLanguage: values.originalLanguage,
+              preferOriginalAudio: values.preferOriginalAudio,
+              rejectDubbedReleases: values.rejectDubbedReleases,
               movieQuotaLimit: movieQuotaEnabled
                 ? values.movieQuotaLimit
                 : null,
@@ -394,6 +404,60 @@ const UserGeneralSettings = () => {
                       serverValue={currentSettings.originalLanguage}
                       value={values.originalLanguage}
                       isUserSettings
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="form-row">
+                <label
+                  htmlFor="preferOriginalAudio"
+                  className="checkbox-label"
+                >
+                  <span>{intl.formatMessage(messages.preferOriginalAudio)}</span>
+                  <span className="label-tip">
+                    {intl.formatMessage(messages.preferOriginalAudioTip)}
+                  </span>
+                </label>
+                <div className="form-input-area">
+                  <div className="form-input-field">
+                    <input
+                      type="checkbox"
+                      id="preferOriginalAudio"
+                      name="preferOriginalAudio"
+                      checked={values.preferOriginalAudio}
+                      onChange={() =>
+                        setFieldValue(
+                          'preferOriginalAudio',
+                          !values.preferOriginalAudio
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="form-row">
+                <label
+                  htmlFor="rejectDubbedReleases"
+                  className="checkbox-label"
+                >
+                  <span>{intl.formatMessage(messages.rejectDubbedReleases)}</span>
+                  <span className="label-tip">
+                    {intl.formatMessage(messages.rejectDubbedReleasesTip)}
+                  </span>
+                </label>
+                <div className="form-input-area">
+                  <div className="form-input-field">
+                    <input
+                      type="checkbox"
+                      id="rejectDubbedReleases"
+                      name="rejectDubbedReleases"
+                      checked={values.rejectDubbedReleases}
+                      onChange={() =>
+                        setFieldValue(
+                          'rejectDubbedReleases',
+                          !values.rejectDubbedReleases
+                        )
+                      }
                     />
                   </div>
                 </div>

@@ -5,6 +5,7 @@ import type { TmdbKeyword } from '@server/api/themoviedb/interfaces';
 import { MediaType } from '@server/constants/media';
 import { getRepository } from '@server/datasource';
 import Media from '@server/entity/Media';
+import { MediaRequest } from '@server/entity/MediaRequest';
 import { User } from '@server/entity/User';
 import { Watchlist } from '@server/entity/Watchlist';
 import type {
@@ -981,5 +982,151 @@ discoverRoutes.get<Record<string, unknown>, WatchlistResponse>(
     });
   }
 );
+
+// Anime keyword ID on TMDB
+const ANIME_KEYWORD_ID = 210024;
+const ANIME_GENRE_ID = 16;
+
+/**
+ * GET /discover/anime/recommendations
+ *
+ * Personalised "You Might Like" for anime.
+ * Takes the user's last 30 TV requests, fetches TMDB recommendations for each,
+ * filters to anime only, scores by frequency, and strips already-requested titles.
+ */
+discoverRoutes.get('/anime/recommendations', async (req, res, next) => {
+  const tmdb = createTmdbWithRegionLanguage(req.user);
+
+  try {
+    if (!req.user) {
+      return res.status(200).json({
+        page: 1,
+        totalPages: 1,
+        totalResults: 0,
+        results: [],
+      });
+    }
+
+    // Fetch user's recent TV requests
+    const requestRepository = getRepository(MediaRequest);
+    const recentRequests = await requestRepository
+      .createQueryBuilder('request')
+      .leftJoinAndSelect('request.media', 'media')
+      .leftJoinAndSelect('request.requestedBy', 'user')
+      .where('user.id = :userId', { userId: req.user.id })
+      .andWhere('media.mediaType = :mediaType', { mediaType: MediaType.TV })
+      .orderBy('request.createdAt', 'DESC')
+      .limit(30)
+      .getMany();
+
+    if (recentRequests.length === 0) {
+      // Fall back to popular anime if no history
+      const popular = await tmdb.getDiscoverTv({
+        page: 1,
+        keywords: String(ANIME_KEYWORD_ID),
+        genre: String(ANIME_GENRE_ID),
+        sortBy: 'popularity.desc',
+      });
+      const media = await Media.getRelatedMedia(
+        req.user,
+        popular.results.map((r) => ({ tmdbId: r.id, mediaType: MediaType.TV }))
+      );
+      return res.status(200).json({
+        page: 1,
+        totalPages: popular.total_pages,
+        totalResults: popular.total_results,
+        results: popular.results.map((r) =>
+          mapTvResult(r, media.find((m) => m.tmdbId === r.id && m.mediaType === MediaType.TV))
+        ),
+      });
+    }
+
+    // Fetch TMDB recommendations for each requested show (parallel)
+    const tmdbIds = recentRequests.map((r) => r.media.tmdbId);
+    const recommendationSets = await Promise.allSettled(
+      tmdbIds.map((id) => tmdb.getTvRecommendations({ tvId: id, page: 1 }))
+    );
+
+    // Score candidates: more sources recommending the same show = higher score
+    const scoreMap = new Map<number, number>();
+    const requestedIds = new Set(tmdbIds);
+
+    for (const result of recommendationSets) {
+      if (result.status !== 'fulfilled') continue;
+      for (const show of result.value.results) {
+        if (requestedIds.has(show.id)) continue; // already have it
+        if (!show.genre_ids?.includes(ANIME_GENRE_ID)) continue; // anime only
+        scoreMap.set(show.id, (scoreMap.get(show.id) ?? 0) + 1);
+      }
+    }
+
+    // Sort by score descending, take top 40
+    const topIds = [...scoreMap.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 40)
+      .map(([id]) => id);
+
+    if (topIds.length === 0) {
+      return res.status(200).json({
+        page: 1,
+        totalPages: 1,
+        totalResults: 0,
+        results: [],
+      });
+    }
+
+    // Fetch full show details for each candidate
+    const showDetails = await Promise.allSettled(
+      topIds.map((id) => tmdb.getTvShow({ tvId: id }))
+    );
+
+    const allResults = showDetails
+      .filter((r): r is PromiseFulfilledResult<Awaited<ReturnType<typeof tmdb.getTvShow>>> =>
+        r.status === 'fulfilled'
+      )
+      .map((r) => r.value);
+
+    const media = await Media.getRelatedMedia(
+      req.user,
+      allResults.map((r) => ({ tmdbId: r.id, mediaType: MediaType.TV }))
+    );
+
+    return res.status(200).json({
+      page: 1,
+      totalPages: 1,
+      totalResults: allResults.length,
+      results: allResults.map((show) =>
+        mapTvResult(
+          {
+            id: show.id,
+            name: show.name,
+            original_name: show.original_name,
+            overview: show.overview,
+            poster_path: show.poster_path ?? null,
+            backdrop_path: show.backdrop_path ?? null,
+            genre_ids: show.genres.map((g) => g.id),
+            first_air_date: show.first_air_date,
+            vote_average: show.vote_average,
+            vote_count: show.vote_count,
+            popularity: show.popularity,
+            original_language: show.original_language,
+            origin_country: show.origin_country,
+            media_type: 'tv',
+          },
+          media.find((m) => m.tmdbId === show.id && m.mediaType === MediaType.TV)
+        )
+      ),
+    });
+  } catch (e) {
+    logger.debug('Something went wrong retrieving anime recommendations', {
+      label: 'API',
+      errorMessage: e.message,
+    });
+    return next({
+      status: 500,
+      message: 'Unable to retrieve anime recommendations.',
+    });
+  }
+});
 
 export default discoverRoutes;
