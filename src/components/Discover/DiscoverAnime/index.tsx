@@ -54,8 +54,8 @@ const ANIME_TAGS = [
 
 const messages = defineMessages('components.Discover.DiscoverAnime', {
   anime: 'Anime',
-  trending: 'Trending This Week',
-  popular: 'Popular Right Now',
+  trending: 'Trending This Season',
+  popular: 'All-Time Favourites',
   youmightlike: 'You Might Like',
   newthisseason: 'New This Season',
   toprated: 'Top Rated',
@@ -76,7 +76,10 @@ const DiscoverAnime = () => {
   );
 
   const baseAnimeParams = `keywords=${ANIME_KEYWORD}&genre=${ANIME_GENRE}`;
-  const trendingParams = `${baseAnimeParams}&sortBy=popularity.desc`;
+  // Current season start — Oct 2025; keeps "trending" to what's airing now
+  const trendingParams = `${baseAnimeParams}&sortBy=popularity.desc&firstAirDateGte=2025-10-01`;
+  // All-time favourites by vote count — classics like Naruto, AoT, Demon Slayer
+  const popularParams = `${baseAnimeParams}&sortBy=vote_count.desc`;
   const topRatedParams = `${baseAnimeParams}&sortBy=vote_average.desc&voteCountGte=200`;
   const newThisSeasonParams = `${baseAnimeParams}&sortBy=first_air_date.desc`;
   const latestParams = `${baseAnimeParams}&sortBy=first_air_date.desc&firstAirDateGte=${sixtyDaysAgo}&firstAirDateLte=${today}`;
@@ -122,13 +125,13 @@ const DiscoverAnime = () => {
         linkUrl={`/discover/tv?${trendingParams}`}
       />
 
-      {/* Popular */}
+      {/* All-Time Favourites */}
       <MediaSlider
         sliderKey="anime-popular"
         title={intl.formatMessage(messages.popular)}
         url="/api/v1/discover/tv"
-        extraParams={baseAnimeParams}
-        linkUrl={`/discover/tv?${baseAnimeParams}`}
+        extraParams={popularParams}
+        linkUrl={`/discover/tv?${popularParams}`}
       />
 
       {/* New This Season */}
