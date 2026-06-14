@@ -11,7 +11,8 @@ const ANIME_KEYWORD = '210024';
 const ANIME_GENRE = '16'; // Animation
 
 // TMDB keyword IDs for adult/mature content to exclude when the 18+ toggle is off
-const ADULT_KEYWORDS = '195669,198385,256466,155477,281741'; // ecchi,hentai,erotic,softcore,nudity
+// Must use %2C (URL-encoded comma) — plain commas are reserved chars in query strings
+const ADULT_KEYWORDS = '195669%2C198385%2C256466%2C155477%2C281741'; // ecchi,hentai,erotic,softcore,nudity
 const ADULT_TAGS = new Set(['ecchi', 'hentai']); // tag keys hidden when 18+ is off
 
 // Today and date helpers for the release calendar
