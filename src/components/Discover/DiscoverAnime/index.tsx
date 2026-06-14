@@ -4,11 +4,15 @@ import MediaSlider from '@app/components/MediaSlider';
 import { useUser } from '@app/hooks/useUser';
 import defineMessages from '@app/utils/defineMessages';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 
 const ANIME_KEYWORD = '210024';
 const ANIME_GENRE = '16'; // Animation
+
+// TMDB keyword IDs for adult/mature content to exclude when the 18+ toggle is off
+const ADULT_KEYWORDS = '195669,198385,256466,155477,281741'; // ecchi,hentai,erotic,softcore,nudity
+const ADULT_TAGS = new Set(['ecchi', 'hentai']); // tag keys hidden when 18+ is off
 
 // Today and date helpers for the release calendar
 const today = new Date().toISOString().split('T')[0];
@@ -50,6 +54,8 @@ const ANIME_TAGS = [
   { key: 'reverse-harem', label: '🔄 Reverse Harem', id: '238374' },
   { key: 'manhwa', label: '🇰🇷 Manhwa', id: '290609' },
   { key: 'post-apoc', label: '☢️ Post-Apocalyptic', id: '359337' },
+  { key: 'ecchi', label: '🔞 Ecchi', id: '195669' },
+  { key: 'hentai', label: '🔞 Hentai', id: '198385' },
 ];
 
 const messages = defineMessages('components.Discover.DiscoverAnime', {
@@ -66,6 +72,9 @@ const messages = defineMessages('components.Discover.DiscoverAnime', {
   latestrelease: 'Latest Releases',
   comingsoon: 'Coming Soon',
   releasecalendar: 'Release Calendar',
+  adulttoggle: '18+',
+  adulttoggleoff: 'Mature content hidden',
+  adulttoggleton: 'Showing mature content',
 });
 
 const DiscoverAnime = () => {
@@ -74,16 +83,35 @@ const DiscoverAnime = () => {
   const [activeTag, setActiveTag] = useState<(typeof ANIME_TAGS)[0] | null>(
     null
   );
+  const [showAdult, setShowAdult] = useState(false);
+
+  // Persist 18+ preference in localStorage
+  useEffect(() => {
+    const stored = localStorage.getItem('anime-show-adult');
+    if (stored === 'true') setShowAdult(true);
+  }, []);
+
+  const toggleAdult = () => {
+    const next = !showAdult;
+    setShowAdult(next);
+    localStorage.setItem('anime-show-adult', String(next));
+    // Collapse active tag if it's adult-only
+    if (!next && activeTag && ADULT_TAGS.has(activeTag.key)) {
+      setActiveTag(null);
+    }
+  };
 
   const baseAnimeParams = `keywords=${ANIME_KEYWORD}&genre=${ANIME_GENRE}`;
+  const adultFilter = showAdult ? '' : `&excludeKeywords=${ADULT_KEYWORDS}`;
+  const base = `${baseAnimeParams}${adultFilter}`;
   // Current season start — Oct 2025; keeps "trending" to what's airing now
-  const trendingParams = `${baseAnimeParams}&sortBy=popularity.desc&firstAirDateGte=2025-10-01`;
+  const trendingParams = `${base}&sortBy=popularity.desc&firstAirDateGte=2025-10-01`;
   // All-time favourites by vote count — classics like Naruto, AoT, Demon Slayer
-  const popularParams = `${baseAnimeParams}&sortBy=vote_count.desc`;
-  const topRatedParams = `${baseAnimeParams}&sortBy=vote_average.desc&voteCountGte=200`;
-  const newThisSeasonParams = `${baseAnimeParams}&sortBy=first_air_date.desc`;
-  const latestParams = `${baseAnimeParams}&sortBy=first_air_date.desc&firstAirDateGte=${sixtyDaysAgo}&firstAirDateLte=${today}`;
-  const comingSoonParams = `${baseAnimeParams}&sortBy=first_air_date.asc&firstAirDateGte=${today}&firstAirDateLte=${sevenWeeksAhead}`;
+  const popularParams = `${base}&sortBy=vote_count.desc`;
+  const topRatedParams = `${base}&sortBy=vote_average.desc&voteCountGte=200`;
+  const newThisSeasonParams = `${base}&sortBy=first_air_date.desc`;
+  const latestParams = `${base}&sortBy=first_air_date.desc&firstAirDateGte=${sixtyDaysAgo}&firstAirDateLte=${today}`;
+  const comingSoonParams = `${base}&sortBy=first_air_date.asc&firstAirDateGte=${today}&firstAirDateLte=${sevenWeeksAhead}`;
 
   return (
     <>
@@ -97,12 +125,31 @@ const DiscoverAnime = () => {
             {intl.formatMessage(messages.anime)}
           </span>
         </Header>
-        <Link
-          href={`/discover/tv?${baseAnimeParams}`}
-          className="flex items-center text-sm font-medium text-gray-400 transition hover:text-white"
-        >
-          {intl.formatMessage(messages.browseall)} →
-        </Link>
+        <div className="flex items-center gap-3">
+          {/* 18+ toggle */}
+          <button
+            onClick={toggleAdult}
+            title={
+              showAdult
+                ? intl.formatMessage(messages.adulttoggleton)
+                : intl.formatMessage(messages.adulttoggleoff)
+            }
+            className={`flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-all ${
+              showAdult
+                ? 'border-red-500 bg-red-500/20 text-red-400'
+                : 'border-gray-600 bg-gray-800 text-gray-500 hover:border-gray-400 hover:text-gray-300'
+            }`}
+          >
+            <span>{intl.formatMessage(messages.adulttoggle)}</span>
+            <span>{showAdult ? '🔓' : '🔒'}</span>
+          </button>
+          <Link
+            href={`/discover/tv?${baseAnimeParams}`}
+            className="flex items-center text-sm font-medium text-gray-400 transition hover:text-white"
+          >
+            {intl.formatMessage(messages.browseall)} →
+          </Link>
+        </div>
       </div>
 
       {/* You Might Like */}
@@ -183,7 +230,7 @@ const DiscoverAnime = () => {
           🏷️ {intl.formatMessage(messages.browsebytag)}
         </h2>
         <div className="flex flex-wrap gap-2">
-          {ANIME_TAGS.map((tag) => {
+          {ANIME_TAGS.filter((t) => showAdult || !ADULT_TAGS.has(t.key)).map((tag) => {
             const isActive = activeTag?.key === tag.key;
             return (
               <button
@@ -202,7 +249,7 @@ const DiscoverAnime = () => {
         </div>
       </div>
 
-      {/* Tag result slider */}
+      {/* Tag result slider — no adult filter here; deliberate tag selection = intentional browse */}
       {activeTag && (
         <MediaSlider
           key={activeTag.key}
