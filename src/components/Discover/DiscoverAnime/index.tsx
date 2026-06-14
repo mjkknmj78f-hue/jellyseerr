@@ -7,11 +7,18 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useIntl } from 'react-intl';
 
-// TMDB constants
 const ANIME_KEYWORD = '210024';
 const ANIME_GENRE = '16'; // Animation
 
-// Anime sub-genre definitions using TMDB genre IDs
+// Today and date helpers for the release calendar
+const today = new Date().toISOString().split('T')[0];
+const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000)
+  .toISOString()
+  .split('T')[0];
+const sevenWeeksAhead = new Date(Date.now() + 49 * 86400000)
+  .toISOString()
+  .split('T')[0];
+
 const ANIME_SUBGENRES = [
   { key: 'action', label: 'Action', params: `keywords=${ANIME_KEYWORD}&genre=28` },
   { key: 'romance', label: 'Romance', params: `keywords=${ANIME_KEYWORD}&genre=10749` },
@@ -21,7 +28,8 @@ const ANIME_SUBGENRES = [
   { key: 'family', label: 'Family & Kids', params: `keywords=${ANIME_KEYWORD}&genre=10751` },
 ];
 
-// Anime tags using TMDB keyword IDs
+// Tag keyword IDs sourced from TMDB — used alone + animation genre (AND-ing with
+// anime keyword 210024 returns 0 results because TMDB tagging is inconsistent)
 const ANIME_TAGS = [
   { key: 'isekai', label: '🌀 Isekai', id: '237451' },
   { key: 'slice-of-life', label: '🌸 Slice of Life', id: '9914' },
@@ -39,7 +47,7 @@ const ANIME_TAGS = [
   { key: 'school', label: '🏫 School', id: '10873' },
   { key: 'sports', label: '🏆 Sports', id: '6075' },
   { key: 'fantasy', label: '🐉 Fantasy', id: '293198' },
-  { key: 'harem-r', label: '🔄 Reverse Harem', id: '238374' },
+  { key: 'reverse-harem', label: '🔄 Reverse Harem', id: '238374' },
   { key: 'manhwa', label: '🇰🇷 Manhwa', id: '290609' },
   { key: 'post-apoc', label: '☢️ Post-Apocalyptic', id: '359337' },
 ];
@@ -54,18 +62,25 @@ const messages = defineMessages('components.Discover.DiscoverAnime', {
   browseall: 'Browse All Anime',
   subgenres: 'Browse by Genre',
   browsebytag: 'Browse by Tag',
-  tagresults: '{tag} Anime',
+  tagresults: '{tag}',
+  latestrelease: 'Latest Releases',
+  comingsoon: 'Coming Soon',
+  releasecalendar: 'Release Calendar',
 });
 
 const DiscoverAnime = () => {
   const intl = useIntl();
   const { user } = useUser();
-  const [activeTag, setActiveTag] = useState<(typeof ANIME_TAGS)[0] | null>(null);
+  const [activeTag, setActiveTag] = useState<(typeof ANIME_TAGS)[0] | null>(
+    null
+  );
 
   const baseAnimeParams = `keywords=${ANIME_KEYWORD}&genre=${ANIME_GENRE}`;
-  const trendingParams = `keywords=${ANIME_KEYWORD}&genre=${ANIME_GENRE}&sortBy=popularity.desc`;
-  const topRatedParams = `keywords=${ANIME_KEYWORD}&genre=${ANIME_GENRE}&sortBy=vote_average.desc&voteCountGte=200`;
-  const newThisSeasonParams = `keywords=${ANIME_KEYWORD}&genre=${ANIME_GENRE}&sortBy=first_air_date.desc`;
+  const trendingParams = `${baseAnimeParams}&sortBy=popularity.desc`;
+  const topRatedParams = `${baseAnimeParams}&sortBy=vote_average.desc&voteCountGte=200`;
+  const newThisSeasonParams = `${baseAnimeParams}&sortBy=first_air_date.desc`;
+  const latestParams = `${baseAnimeParams}&sortBy=first_air_date.desc&firstAirDateGte=${sixtyDaysAgo}&firstAirDateLte=${today}`;
+  const comingSoonParams = `${baseAnimeParams}&sortBy=first_air_date.asc&firstAirDateGte=${today}&firstAirDateLte=${sevenWeeksAhead}`;
 
   return (
     <>
@@ -80,25 +95,25 @@ const DiscoverAnime = () => {
           </span>
         </Header>
         <Link
-          href={`/discover/tv?keywords=${ANIME_KEYWORD}&genre=${ANIME_GENRE}`}
+          href={`/discover/tv?${baseAnimeParams}`}
           className="flex items-center text-sm font-medium text-gray-400 transition hover:text-white"
         >
           {intl.formatMessage(messages.browseall)} →
         </Link>
       </div>
 
-      {/* You Might Like — personalised from request history */}
+      {/* You Might Like */}
       {user && (
         <MediaSlider
           sliderKey="anime-recommendations"
           title={intl.formatMessage(messages.youmightlike)}
           url="/api/v1/discover/anime/recommendations"
-          linkUrl={`/discover/tv?keywords=${ANIME_KEYWORD}&genre=${ANIME_GENRE}`}
+          linkUrl={`/discover/tv?${baseAnimeParams}`}
           hideWhenEmpty
         />
       )}
 
-      {/* Trending This Week */}
+      {/* Trending */}
       <MediaSlider
         sliderKey="anime-trending"
         title={intl.formatMessage(messages.trending)}
@@ -107,7 +122,7 @@ const DiscoverAnime = () => {
         linkUrl={`/discover/tv?${trendingParams}`}
       />
 
-      {/* Popular Right Now */}
+      {/* Popular */}
       <MediaSlider
         sliderKey="anime-popular"
         title={intl.formatMessage(messages.popular)}
@@ -134,10 +149,35 @@ const DiscoverAnime = () => {
         linkUrl={`/discover/tv?${topRatedParams}`}
       />
 
-      {/* Browse by Tag */}
+      {/* ── Release Calendar ── */}
+      <div className="mb-4 mt-10 flex items-center gap-3">
+        <h2 className="text-xl font-bold text-white">
+          📅 {intl.formatMessage(messages.releasecalendar)}
+        </h2>
+      </div>
+
+      <MediaSlider
+        sliderKey="anime-latest"
+        title={intl.formatMessage(messages.latestrelease)}
+        url="/api/v1/discover/tv"
+        extraParams={latestParams}
+        linkUrl={`/discover/tv?${latestParams}`}
+        hideWhenEmpty
+      />
+
+      <MediaSlider
+        sliderKey="anime-coming-soon"
+        title={intl.formatMessage(messages.comingsoon)}
+        url="/api/v1/discover/tv"
+        extraParams={comingSoonParams}
+        linkUrl={`/discover/tv?${comingSoonParams}`}
+        hideWhenEmpty
+      />
+
+      {/* ── Browse by Tag ── */}
       <div className="mb-4 mt-10">
         <h2 className="mb-4 text-xl font-bold text-white">
-          {intl.formatMessage(messages.browsebytag)}
+          🏷️ {intl.formatMessage(messages.browsebytag)}
         </h2>
         <div className="flex flex-wrap gap-2">
           {ANIME_TAGS.map((tag) => {
@@ -159,20 +199,21 @@ const DiscoverAnime = () => {
         </div>
       </div>
 
-      {/* Tag result slider — shown when a tag is selected */}
+      {/* Tag result slider */}
       {activeTag && (
         <MediaSlider
           key={activeTag.key}
           sliderKey={`anime-tag-${activeTag.key}`}
-          title={intl.formatMessage(messages.tagresults, { tag: activeTag.label })}
+          title={intl.formatMessage(messages.tagresults, {
+            tag: activeTag.label,
+          })}
           url="/api/v1/discover/tv"
-          extraParams={`keywords=${ANIME_KEYWORD},${activeTag.id}&genre=${ANIME_GENRE}`}
-          linkUrl={`/discover/tv?keywords=${ANIME_KEYWORD},${activeTag.id}&genre=${ANIME_GENRE}`}
-          hideWhenEmpty
+          extraParams={`keywords=${activeTag.id}&genre=${ANIME_GENRE}`}
+          linkUrl={`/discover/tv?keywords=${activeTag.id}&genre=${ANIME_GENRE}`}
         />
       )}
 
-      {/* Sub-genre rows */}
+      {/* ── Browse by Genre ── */}
       <div className="mb-4 mt-10">
         <h2 className="text-xl font-bold text-white">
           {intl.formatMessage(messages.subgenres)}
